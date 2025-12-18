@@ -4,6 +4,7 @@ Pillow
 pandas
 numpy
 protobuf
+opencv-python-headless
 
 # streamlit>=1.18.0
 # paddleocr==2.7.0
