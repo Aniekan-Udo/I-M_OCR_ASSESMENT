@@ -120,30 +120,26 @@ IMAGE_PATH = r"C:\path\to\your\leaflet\image.jpg"
 ```
 
 ### 2. Run Application
-```bash
-streamlit run streamlit_app.py
-```
-
+streamlit
 ```bash
 python app.py
+```
 
+**Expected output:**
+```
+Processing image with OCR...
+✓ Successfully extracted 15 products
+✓ Saved products to data.json
 ====================================================
 Starting web application...
 Open your browser and navigate to: http://127.0.0.1:5000
 ====================================================
 ```
 
+### 3. Open Web Interface
 Navigate to `http://127.0.0.1:5000` in your browser
-```
 
-**Expected output:**
-```
-Processing image with OCR...
-✓ Successfully extracted products
-✓ Saved products to data.json
-
-
-### 3. View Results
+### 4. View Results
 - Browse products in the table
 - Use search to filter
 - Click any row for details
@@ -155,15 +151,22 @@ Processing image with OCR...
 
 ```
 leaflet-extractor/
-├── app.py                      # Main application for (Flask + OCR pipeline)
-├── streamlit_app.py.py         # Main application (Streamlit + OCR pipeline)
+├── app.py                      # Main application (Flask + OCR pipeline)
 ├── requirements.txt            # Python dependencies
 ├── README.md                   # This file
 ├── templates/                  # Flask templates folder
 │   └── index.html             # Web interface (HTML/CSS/JS)
-├── data.json                   # Output file (auto-generated)
 
+```
 
+### File Descriptions
+
+| File | Description | Required |
+|------|-------------|----------|
+| `app.py` | Main Python application with Flask server and OCR logic | ✅ Yes |
+| `templates/index.html` | Web interface (HTML/CSS/JavaScript) | ✅ Yes |
+| `requirements.txt` | List of Python package dependencies | ✅ Yes |
+| `README.md` | Project overview and instructions | 📖 Recommended |
 
 ## 📖 Usage
 
