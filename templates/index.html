@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaflet Product Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .upload-box {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 60px 40px;
+            background: #f8f9ff;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-box:hover {
+            background: #e7f0ff;
+            border-color: #5568d3;
+        }
+
+        .upload-box.dragover {
+            background: #dde7ff;
+            border-color: #4355c4;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.3em;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #6c757d;
+            font-size: 0.95em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 25px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+        }
+
+        .stat-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-card .label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .controls {
+            padding: 20px 30px;
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e9ecef;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+            transform: scale(1.01);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        td {
+            padding: 15px;
+            color: #212529;
+        }
+
+        .price {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-promo {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-size {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #6c757d;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #dc3545;
+        }
+
+        .detail-row {
+            padding: 12px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            font-size: 1.1em;
+            color: #212529;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #28a745;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 2000;
+            animation: slideInRight 0.3s;
+            display: none;
+        }
+
+        .notification.active {
+            display: block;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .selected-file {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #e7f3ff;
+            border-radius: 8px;
+            color: #0c5460;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 Leaflet Product Extractor</h1>
+            <p>Intelligent OCR-based product information extraction</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-box" id="uploadBox">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text">Drop your leaflet image here or click to browse</div>
+                <div class="upload-hint">Supported formats: JPG, PNG, GIF, WebP | Max size: 16MB</div>
+            </div>
+            <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" />
+            <div id="selectedFile" class="selected-file" style="display: none;"></div>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" id="uploadBtn" disabled>Process Image</button>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing image with OCR... This may take 10-30 seconds.</p>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="number" id="totalProducts">0</div>
+                    <div class="label">Total Products</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="avgPrice">$0.00</div>
+                    <div class="label">Average Price</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="promoCount">0</div>
+                    <div class="label">Promotions</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="🔍 Search products...">
+                </div>
+                <div>
+                    <button class="btn btn-success" onclick="downloadJSON()">
+                        📥 Download JSON
+                    </button>
+                    <button class="btn btn-primary" onclick="resetApp()">
+                        🔄 Upload New Image
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="productsTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Product Name</th>
+                            <th>Price</th>
+                            <th>Size</th>
+                            <th>Unit Price</th>
+                            <th>Promotion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <div>📦</div>
+                    <h3>No products found</h3>
+                    <p>Try adjusting your search</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Details Modal -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Product Details</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let products = [];
+        let filteredProducts = [];
+        let selectedFile = null;
+
+        // File input handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadBox = document.getElementById('uploadBox');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const selectedFileDiv = document.getElementById('selectedFile');
+
+        uploadBox.addEventListener('click', () => fileInput.click());
+
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.classList.add('dragover');
+        });
+
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.classList.remove('dragover');
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            selectedFile = file;
+            selectedFileDiv.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            selectedFileDiv.style.display = 'inline-block';
+            uploadBtn.disabled = false;
+        }
+
+        uploadBtn.addEventListener('click', uploadAndProcess);
+
+        async function uploadAndProcess() {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('loading').classList.add('active');
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                document.getElementById('loading').classList.remove('active');
+
+                if (data.success) {
+                    products = data.products;
+                    filteredProducts = products;
+                    updateStats();
+                    renderTable();
+                    document.getElementById('resultsSection').classList.add('active');
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.message, 'error');
+                    document.getElementById('uploadSection').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('uploadSection').style.display = 'block';
+                showNotification('Error processing image: ' + error.message, 'error');
+            }
+        }
+
+        function resetApp() {
+            document.getElementById('resultsSection').classList.remove('active');
+            document.getElementById('uploadSection').style.display = 'block';
+            selectedFile = null;
+            selectedFileDiv.style.display = 'none';
+            uploadBtn.disabled = true;
+            fileInput.value = '';
+            products = [];
+            filteredProducts = [];
+        }
+
+        function updateStats() {
+            document.getElementById('totalProducts').textContent = products.length;
+            
+            const avgPrice = products.length > 0 
+                ? (products.reduce((sum, p) => sum + (p.price || 0), 0) / products.length).toFixed(2)
+                : '0.00';
+            document.getElementById('avgPrice').textContent = `$${avgPrice}`;
+            
+            const promoCount = products.filter(p => p.promo_text).length;
+            document.getElementById('promoCount').textContent = promoCount;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (filteredProducts.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            tbody.innerHTML = filteredProducts.map(product => `
+                <tr onclick="selectProduct(${product.id})">
+                    <td>${product.id}</td>
+                    <td class="product-name">${product.product_name || 'N/A'}</td>
+                    <td class="price">$${(product.price || 0).toFixed(2)}</td>
+                    <td>${product.size ? `<span class="badge badge-size">${product.size}</span>` : '-'}</td>
+                    <td>${product.unit_price_text || '-'}</td>
+                    <td>${product.promo_text ? `<span class="badge badge-promo">${product.promo_text}</span>` : '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function selectProduct(productId) {
+            try {
+                const response = await fetch(`/api/product/${productId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    showProductDetails(data.product);
+                    showNotification(`Selected: ${data.product.product_name}`, 'success');
+                }
+            } catch (error) {
+                console.error('Error selecting product:', error);
+            }
+        }
+
+        function showProductDetails(product) {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            
+            modalBody.innerHTML = `
+                <div class="detail-row">
+                    <div class="detail-label">Product ID</div>
+                    <div class="detail-value">#${product.id}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Product Name</div>
+                    <div class="detail-value">${product.product_name || 'N/A'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$${(product.price || 0).toFixed(2)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Price Unit</div>
+                    <div class="detail-value">${product.price_unit || 'N/A'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Size</div>
+                    <div class="detail-value">${product.size || 'N/A'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Unit Price</div>
+                    <div class="detail-value">${product.unit_price_text || 'N/A'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Promotion</div>
+                    <div class="detail-value">${product.promo_text || 'No promotion'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Bounding Box</div>
+                    <div class="detail-value">[${product.bbox.map(v => v.toFixed(1)).join(', ')}]</div>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        async function downloadJSON() {
+            try {
+                window.location.href = '/api/download';
+                showNotification('JSON file downloaded successfully!', 'success');
+            } catch (error) {
+                console.error('Error downloading:', error);
+                showNotification('Error downloading file', 'error');
+            }
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.background = type === 'success' ? '#28a745' : '#dc3545';
+            notification.classList.add('active');
+            
+            setTimeout(() => {
+                notification.classList.remove('active');
+            }, 3000);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            filteredProducts = products.filter(p => 
+                (p.product_name || '').toLowerCase().includes(searchTerm) ||
+                (p.promo_text || '').toLowerCase().includes(searchTerm)
+            );
+            renderTable();
+        });
+
+        document.getElementById('detailModal').addEventListener('click', (e) => {
+            if (e.target.id === 'detailModal') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
