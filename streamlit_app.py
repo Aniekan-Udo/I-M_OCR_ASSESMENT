@@ -10,10 +10,14 @@ import numpy as np
 from paddleocr import PaddleOCR
 from io import BytesIO
 
+# Environment fixes for Streamlit Cloud
+os.environ['FLAGS_enable_mkldnn'] = 'False'
+os.environ['PADDLE_DISABLE_SIGNAL_HANDLER'] = '1'
+os.environ['DISABLE_MODEL_SOURCE_CHECK'] = 'True'
+
 # Suppress warnings
 warnings.filterwarnings('ignore', message='.*tesseract.*')
 warnings.filterwarnings('ignore', category=FutureWarning)
-os.environ['DISABLE_MODEL_SOURCE_CHECK'] = 'True'
 
 # Page config
 st.set_page_config(
@@ -29,12 +33,17 @@ if 'EXTRACTED_PRODUCTS' not in st.session_state:
 
 @st.cache_resource
 def load_ocr():
-    """Load PaddleOCR optimized for leaflets"""
+    """Load PaddleOCR optimized for leaflets - Streamlit Cloud compatible"""
     return PaddleOCR(
         lang="en", 
         use_angle_cls=True, 
         text_det_thresh=0.3,  
-        text_det_box_thresh=0.5
+        text_det_box_thresh=0.5, # Force CPU for Streamlit Cloud stability
+        cpu_threads=2,
+        enable_mkldnn=False,
+        use_doc_orientation_classify=False,  # Disable PaddleX doc features
+        use_doc_unwarping=False,
+        ocr_version='PP-OCRv4'  # Reduce logging noise
     )
 
 # -----------------------------
