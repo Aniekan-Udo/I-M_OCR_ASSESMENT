@@ -42,7 +42,7 @@ EXTRACTED_PRODUCTS = []
 ocr = PaddleOCR(
     lang="en", 
     use_textline_orientation=True, 
-    text_det_thresh=0.3,  # Detects more text boxes
+    text_det_thresh=0.3,  
     text_det_box_thresh=0.5
 )
 
@@ -170,7 +170,7 @@ def choose_product_name(price_line, context_lines):
         
         x1, y1, x2, y2 = l["bbox"]
         
-        # FIXED: Look for text BELOW the price (y1 > py_bottom)
+        
         # Allow some overlap (y1 > py_bottom - 20)
         if y1 < py_bottom - 20:
             continue
