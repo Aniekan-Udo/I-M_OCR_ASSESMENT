@@ -156,7 +156,7 @@ def group_products(lines, max_dist: float = 250.0):
     return groups
 
 # -----------------------------
-# Product-name heuristic - FIXED TO LOOK BELOW PRICE
+# Product-name heuristic 
 # -----------------------------
 def choose_product_name(price_line, context_lines):
     px1, py1, px2, py2 = price_line["bbox"]
