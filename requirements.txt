@@ -1,6 +1,9 @@
 streamlit
+easyocr
 pillow
 numpy
+opencv-python-headless
+
 
 # streamlit>=1.38.0
 # paddleocr==2.8.1
