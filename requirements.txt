@@ -1,6 +1,6 @@
 streamlit>=1.38.0
-paddleocr>=2.8.1
-paddlepaddle>=2.6.0
-pillow
-numpy
-protobuf<5.0
+paddleocr==2.8.1
+paddlepaddle==2.6.1
+pillow>=10.0.0
+numpy>=1.24.0
+protobuf==4.25.3

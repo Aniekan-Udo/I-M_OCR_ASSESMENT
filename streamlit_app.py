@@ -7,10 +7,9 @@ import warnings
 from pathlib import Path
 from PIL import Image
 import numpy as np
-from paddleocr import PaddleOCR
 from io import BytesIO
 
-# Environment fixes for Streamlit Cloud
+# CRITICAL: Set environment BEFORE any Paddle imports
 os.environ['FLAGS_enable_mkldnn'] = 'False'
 os.environ['PADDLE_DISABLE_SIGNAL_HANDLER'] = '1'
 os.environ['DISABLE_MODEL_SOURCE_CHECK'] = 'True'
@@ -31,29 +30,25 @@ st.set_page_config(
 if 'EXTRACTED_PRODUCTS' not in st.session_state:
     st.session_state.EXTRACTED_PRODUCTS = []
 
+# Fixed OCR loader - REMOVED conflicting parameters
 @st.cache_resource
 def load_ocr():
-    """Load PaddleOCR optimized for leaflets - Streamlit Cloud compatible"""
+    """Load PaddleOCR - Fixed parameter conflict"""
+    from paddleocr import PaddleOCR
     return PaddleOCR(
         lang="en", 
         use_angle_cls=True, 
-        text_det_thresh=0.3,  
-        text_det_box_thresh=0.5, # Force CPU for Streamlit Cloud stability
-        cpu_threads=2,
-        enable_mkldnn=False,
-        use_doc_orientation_classify=False,  # Disable PaddleX doc features
-        use_doc_unwarping=False,
-        ocr_version='PP-OCRv4'  # Reduce logging noise
+        det_db_thresh=0.3,      # Use ONE threshold parameter
+        det_db_box_thresh=0.5,
+        cpu_threads=1,
+        enable_mkldnn=False
     )
 
-# -----------------------------
-# Your existing helper functions (unchanged)
-# -----------------------------
 def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-price_pattern = re.compile(r"(?:[$€£]\s*)?(\d{1,2}\.\d{1,2}|\d{1,2})\b")
+price_pattern = re.compile(r"(?:[$€£]\s*)?(\d{1,2}\.\d{2}|\d{1,2})\b")
 size_pattern = re.compile(r"\b\d+\s*(g|kg|ml|l)\b|\b(pack|pk)\b", re.I)
 
 def is_price(text: str) -> bool:
@@ -85,15 +80,11 @@ def center(box):
     return (0.5 * (x1 + x2), 0.5 * (y1 + y2))
 
 def run_ocr(image):
-    """OCR on PIL Image or path - handles both formats"""
     ocr = load_ocr()
+    
     if isinstance(image, str):
         raw = ocr.ocr(image)
     else:
-        # Convert PIL to temp bytes for OCR
-        img_buffer = BytesIO()
-        image.save(img_buffer, format='PNG')
-        img_buffer.seek(0)
         raw = ocr.ocr(np.array(image))
     
     if not isinstance(raw, list) or len(raw) == 0:
@@ -222,7 +213,6 @@ def extract_fields(group):
     }
 
 def extract_products(image):
-    """Main extraction pipeline"""
     lines = run_ocr(image)
     groups = group_products(lines)
     products = [extract_fields(g) for g in groups]
@@ -244,7 +234,6 @@ def extract_products(image):
     return cleaned
 
 def save_uploaded_file(uploaded_file):
-    """Save uploaded file to temp uploads folder"""
     uploads_dir = "uploads"
     os.makedirs(uploads_dir, exist_ok=True)
     
@@ -253,14 +242,10 @@ def save_uploaded_file(uploaded_file):
         f.write(uploaded_file.getbuffer())
     return filepath
 
-# -----------------------------
-# Streamlit UI
-# -----------------------------
 def main():
     st.title("🛒 Leaflet Product Extractor")
     st.markdown("Upload a supermarket leaflet to automatically extract product names, prices, and details")
     
-    # Sidebar
     st.sidebar.header("📁 Upload")
     uploaded_file = st.sidebar.file_uploader(
         "Choose an image file", 
@@ -268,11 +253,9 @@ def main():
         help="Supports JPG, PNG, WebP (max 16MB)"
     )
     
-    # Main content
     col1, col2 = st.columns([2, 1])
     
     if uploaded_file is not None and allowed_file(uploaded_file.name):
-        # Save and display image
         filepath = save_uploaded_file(uploaded_file)
         image = Image.open(uploaded_file)
         
@@ -280,34 +263,32 @@ def main():
             st.image(image, caption="Uploaded Leaflet", use_column_width=True)
             st.info(f"📐 Image: {image.size[0]}x{image.size[1]} pixels")
         
-        # Process button
         if st.button("🔍 Extract Products", type="primary"):
             with st.spinner("Running OCR + Product extraction..."):
-                st.session_state.EXTRACTED_PRODUCTS = extract_products(image)
+                try:
+                    st.session_state.EXTRACTED_PRODUCTS = extract_products(image)
+                except Exception as e:
+                    st.error(f"OCR failed: {str(e)}")
+                    st.session_state.EXTRACTED_PRODUCTS = []
             
             if st.session_state.EXTRACTED_PRODUCTS:
                 st.success(f"✅ Extracted {len(st.session_state.EXTRACTED_PRODUCTS)} products!")
                 
-                # Products table
                 with col2:
                     st.subheader("📊 Products")
                 
-                df = st.dataframe(
-                    [{"ID": p["id"], 
-                      "Product": p["product_name"][:50] + "..." if len(p["product_name"]) > 50 else p["product_name"],
-                      "Price": f"${p['price']:.2f}" if p['price'] else "N/A",
-                      "Size": p.get("size", ""),
-                      "Promo": p.get("promo_text", "")[:30] + "..." if p.get("promo_text") else ""}
-                     for p in st.session_state.EXTRACTED_PRODUCTS],
-                    use_container_width=True,
-                    hide_index=True
-                )
+                df_data = [{"ID": p["id"], 
+                          "Product": p["product_name"][:50] + "..." if len(p["product_name"]) > 50 else p["product_name"],
+                          "Price": f"${p['price']:.2f}" if p['price'] else "N/A",
+                          "Size": p.get("size", ""),
+                          "Promo": p.get("promo_text", "")[:30] + "..." if p.get("promo_text") else ""}
+                         for p in st.session_state.EXTRACTED_PRODUCTS]
                 
-                # Product details expander
+                st.dataframe(df_data, use_container_width=True, hide_index=True)
+                
                 with st.expander(f"👁️ View all {len(st.session_state.EXTRACTED_PRODUCTS)} products (JSON)"):
                     st.json(st.session_state.EXTRACTED_PRODUCTS)
                 
-                # Download
                 json_data = json.dumps(st.session_state.EXTRACTED_PRODUCTS, indent=2, ensure_ascii=False)
                 st.download_button(
                     label="💾 Download products.json",
