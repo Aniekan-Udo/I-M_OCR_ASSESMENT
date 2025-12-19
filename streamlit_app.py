@@ -4,15 +4,9 @@ import math
 import json
 import os
 import warnings
-from pathlib import Path
 from PIL import Image
 import numpy as np
-from io import BytesIO
-
-# CRITICAL: Set environment BEFORE any Paddle imports
-os.environ['FLAGS_enable_mkldnn'] = 'False'
-os.environ['PADDLE_DISABLE_SIGNAL_HANDLER'] = '1'
-os.environ['DISABLE_MODEL_SOURCE_CHECK'] = 'True'
+import easyocr
 
 # Suppress warnings
 warnings.filterwarnings('ignore', message='.*tesseract.*')
@@ -30,19 +24,11 @@ st.set_page_config(
 if 'EXTRACTED_PRODUCTS' not in st.session_state:
     st.session_state.EXTRACTED_PRODUCTS = []
 
-# Fixed OCR loader - REMOVED conflicting parameters
+# EasyOCR loader - Simple and lightweight
 @st.cache_resource
 def load_ocr():
-    """Load PaddleOCR - Fixed parameter conflict"""
-    from paddleocr import PaddleOCR
-    return PaddleOCR(
-        lang="en", 
-        use_angle_cls=True, 
-        det_db_thresh=0.3,      # Use ONE threshold parameter
-        det_db_box_thresh=0.5,
-        cpu_threads=1,
-        enable_mkldnn=False
-    )
+    """Load EasyOCR Reader"""
+    return easyocr.Reader(['en'], gpu=False)
 
 def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
@@ -76,31 +62,33 @@ def parse_price(text: str):
         return None
 
 def center(box):
-    x1, y1, x2, y2 = box
-    return (0.5 * (x1 + x2), 0.5 * (y1 + y2))
+    """Fixed: Handle EasyOCR's 4-point bbox format correctly"""
+    if isinstance(box[0], list):  # EasyOCR format: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+        x_coords = [float(pt[0]) for pt in box]
+        y_coords = [float(pt[1]) for pt in box]
+        return (sum(x_coords)/4, sum(y_coords)/4)
+    else:  # Simple [x1,y1,x2,y2] format
+        x1, y1, x2, y2 = [float(x) for x in box]
+        return (0.5 * (x1 + x2), 0.5 * (y1 + y2))
 
 def run_ocr(image):
     ocr = load_ocr()
     
     if isinstance(image, str):
-        raw = ocr.ocr(image)
+        results = ocr.readtext(image)
     else:
-        raw = ocr.ocr(np.array(image))
-    
-    if not isinstance(raw, list) or len(raw) == 0:
-        return []
-    
-    page = raw[0]
-    rec_texts = page.get("rec_texts", [])
-    rec_scores = page.get("rec_scores", [])
-    rec_boxes = page.get("rec_boxes", [])
+        results = ocr.readtext(np.array(image))
     
     lines = []
-    for text, score, box in zip(rec_texts, rec_scores, rec_boxes):
-        x1, y1, x2, y2 = map(float, box)
+    for (bbox, text, score) in results:
+        # Convert EasyOCR bbox format to simple [x1,y1,x2,y2] with floats
+        x_coords = [float(point[0]) for point in bbox]
+        y_coords = [float(point[1]) for point in bbox]
+        box = [float(min(x_coords)), float(min(y_coords)), float(max(x_coords)), float(max(y_coords))]
+        
         lines.append({
-            "text": str(text),
-            "bbox": [x1, y1, x2, y2],
+            "text": text,
+            "bbox": box,
             "score": float(score),
         })
     return lines
@@ -126,7 +114,7 @@ def group_products(lines, max_dist: float = 250.0):
         all_boxes = [p["bbox"]] + [l["bbox"] for l in related]
         xs = [b[0] for b in all_boxes] + [b[2] for b in all_boxes]
         ys = [b[1] for b in all_boxes] + [b[3] for b in all_boxes]
-        prod_box = [min(xs), min(ys), max(xs), max(ys)]
+        prod_box = [float(min(xs)), float(min(ys)), float(max(xs)), float(max(ys))]
         
         groups.append({
             "price_line": p,
@@ -208,7 +196,7 @@ def extract_fields(group):
         "size": size,
         "unit_price_text": unit_price_text,
         "promo_text": promo_text,
-        "bbox": group["bbox"],
+        "bbox": [float(x) for x in group["bbox"]],
         "raw_price_text": price_text,
     }
 
@@ -228,7 +216,7 @@ def extract_products(image):
         if p["price"] > 100 and "$" not in p["raw_price_text"]:
             continue
         
-        p["id"] = idx + 1
+        p["id"] = int(idx + 1)
         cleaned.append(p)
     
     return cleaned
@@ -278,21 +266,25 @@ def main():
                     st.subheader("📊 Products")
                 
                 df_data = [{"ID": p["id"], 
-                          "Product": p["product_name"][:50] + "..." if len(p["product_name"]) > 50 else p["product_name"],
-                          "Price": f"${p['price']:.2f}" if p['price'] else "N/A",
-                          "Size": p.get("size", ""),
-                          "Promo": p.get("promo_text", "")[:30] + "..." if p.get("promo_text") else ""}
-                         for p in st.session_state.EXTRACTED_PRODUCTS]
+                           "Product": p["product_name"][:50] + "..." if len(p["product_name"]) > 50 else p["product_name"],
+                           "Price": f"${p['price']:.2f}" if p['price'] else "N/A",
+                           "Size": p.get("size", ""),
+                           "Promo": p.get("promo_text", "")[:30] + "..." if p.get("promo_text") else ""}
+                          for p in st.session_state.EXTRACTED_PRODUCTS]
                 
                 st.dataframe(df_data, use_container_width=True, hide_index=True)
                 
                 with st.expander(f"👁️ View all {len(st.session_state.EXTRACTED_PRODUCTS)} products (JSON)"):
                     st.json(st.session_state.EXTRACTED_PRODUCTS)
                 
-                json_data = json.dumps(st.session_state.EXTRACTED_PRODUCTS, indent=2, ensure_ascii=False)
+                # FIXED: Convert numpy types to Python natives for JSON
+                json_ready = json.loads(json.dumps(st.session_state.EXTRACTED_PRODUCTS, 
+                                                 default=str, 
+                                                 ensure_ascii=False, 
+                                                 indent=2))
                 st.download_button(
                     label="💾 Download products.json",
-                    data=json_data,
+                    data=json.dumps(json_ready, indent=2, ensure_ascii=False),
                     file_name="extracted_products.json",
                     mime="application/json",
                     type="secondary"
